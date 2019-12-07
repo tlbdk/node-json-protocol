@@ -1,7 +1,7 @@
 import net from 'net'
 import os from 'os'
 import crypto from 'crypto'
-import { testJSONServer } from './testutils'
+import { testJSONServer, testJSONServerTimeout } from './testutils'
 
 describe('JSONServer', () => {
   test('Simple response', async () => {

@@ -10,7 +10,7 @@ export async function testJSONServer(
   response: TestResponse,
   useRequestId?: boolean
 ): Promise<JSONMessage> {
-  return new Promise((resolve, reject) => {
+  return new Promise(resolve => {
     const jsonServer = new JSONServer(socketPath, (sock, request) => {
       if (useRequestId) {
         response.id = request.id
@@ -19,6 +19,17 @@ export async function testJSONServer(
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
       jsonServer.close().then(() => {
         resolve(request)
+      })
+    })
+  })
+}
+
+export async function testJSONServerTimeout(socketPath: string): Promise<void> {
+  return new Promise(resolve => {
+    const jsonServer = new JSONServer(socketPath, () => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      jsonServer.close().then(() => {
+        resolve()
       })
     })
   })
