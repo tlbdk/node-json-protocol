@@ -1,7 +1,7 @@
 import { JSONClient } from './json-client'
-import { JSONRequest } from './protocol'
+import { JSONMessage } from './protocol'
 
-export interface Position extends JSONRequest {
+export interface Position extends JSONMessage {
   long: number
   lat: number
   speed: number
