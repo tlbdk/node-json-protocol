@@ -1,26 +1,11 @@
-import { JSONServer } from './json-server'
 import net from 'net'
-import { JSONMessage, encode } from './protocol'
-
-interface TestResponse extends JSONMessage {
-  value: string
-}
-
-async function testJSONServer(socketPath: string, response: TestResponse): Promise<JSONMessage> {
-  return new Promise((resolve, reject) => {
-    const jsonServer = new JSONServer(socketPath, (sock, request) => {
-      sock.write(`${encode(response)}\n`)
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      jsonServer.close().then(() => {
-        resolve(request)
-      })
-    })
-  })
-}
+import os from 'os'
+import crypto from 'crypto'
+import { testJSONServer } from './testutils'
 
 describe('JSONServer', () => {
   test('Simple response', async () => {
-    const socketPath = 'socketpath.sock' // TODO: Pick random name so we can run multiple tests at the same time
+    const socketPath = `${os.tmpdir()}-${crypto.randomBytes(12).toString('hex')}.sock`
 
     const request = testJSONServer(socketPath, { id: '1234', type: 'MyTest', value: 'test' })
 

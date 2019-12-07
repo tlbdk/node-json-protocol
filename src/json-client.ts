@@ -1,28 +1,41 @@
 import net from 'net'
 import { decode, encode, JSONMessage, isJSONParseErrorMessage, JSONMessageRequest } from './protocol'
-import { TimeoutError, ParserError } from './errors'
+import { TimeoutError, ParserError, ConnectionClosedError, ConnectionError } from './errors'
 
 export class JSONClient {
-  private id = 0
+  private id = 1
   private outstandingRequests: {
     [id: string]: { resolve: (obj: JSONMessage) => void; reject: (err: Error) => void }
   } = {}
   private socket: net.Socket
+  private reconnect = true
+  private onClosePromise: Promise<void>
 
   constructor(socketPath: string) {
     // Create socket connection
     this.socket = net.createConnection({ path: socketPath })
-    this.socket.on('close', () => {
-      // If the connection closes retry again in 1 sec
-      setTimeout(() => {
-        this.socket.connect(socketPath)
-      }, 1000)
+
+    this.onClosePromise = new Promise(resolve => {
+      this.socket.on('close', () => {
+        for (const id of Object.keys(this.outstandingRequests)) {
+          this.outstandingRequests[id].reject(new ConnectionClosedError(`request '${id}' connection was closed`))
+        }
+
+        if (this.reconnect) {
+          // If the connection closes retry again in 1 sec
+          setTimeout(() => {
+            this.socket.connect(socketPath)
+          }, 1000)
+        } else {
+          resolve()
+        }
+      })
     })
 
     // Catch connection errors and Send reject to all outstandingRequests
     this.socket.on('error', err => {
       for (const id of Object.keys(this.outstandingRequests)) {
-        this.outstandingRequests[id].reject(err)
+        this.outstandingRequests[id].reject(new ConnectionError(`request '${id}' failed: ${err.message}`))
       }
     })
 
@@ -46,7 +59,7 @@ export class JSONClient {
   }
 
   async request(obj: JSONMessageRequest, timeout = 1000): Promise<JSONMessage> {
-    // TODO: Validate that it's a RequestJSONMessage
+    // TODO: Validate that it's a JSONMessageRequest
     const request = { id: this.id++ + '', ...obj } as JSONMessage
     const message = encode(request)
     this.socket.write(message + '\n')
@@ -57,5 +70,11 @@ export class JSONClient {
         reject(new TimeoutError())
       }, timeout)
     })
+  }
+
+  async close(): Promise<void> {
+    this.reconnect = false
+    this.socket.end()
+    return this.onClosePromise
   }
 }
