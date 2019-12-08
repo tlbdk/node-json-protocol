@@ -1,6 +1,6 @@
 import net from 'net'
 import { decode, encode, JSONMessage, isJSONParseErrorMessage, JSONMessageRequest } from './protocol'
-import { TimeoutError, ParserError, ConnectionClosedError, ConnectionError } from './errors'
+import { TimeoutError, ServerParserError, ConnectionClosedError, ConnectionError, ClientParserError } from './errors'
 
 export class JSONClient {
   private id = 1
@@ -10,6 +10,7 @@ export class JSONClient {
   private socket: net.Socket
   private reconnect = true
   private onClosePromise: Promise<void>
+  private errorListener: Array<(error: Error) => void> = []
 
   constructor(socketPath: string) {
     // Create socket connection
@@ -48,11 +49,22 @@ export class JSONClient {
       if (offset > -1) {
         const message = buffer.slice(0, offset)
         buffer = buffer.slice(offset + 1)
-        const response = decode(message.toString()) as JSONMessage
-        if (isJSONParseErrorMessage(response)) {
-          this.outstandingRequests[response.id].reject(new ParserError(response.message))
-        } else {
-          this.outstandingRequests[response.id].resolve(response)
+        try {
+          const response = decode(message.toString()) as JSONMessage
+          // TODO: Validate this is a JSONMessage
+          if (!this.outstandingRequests[response.id]) {
+            throw new Error(`Unknown response id ${response.id}`)
+            // Skip if we did not ask for this message
+          } else if (isJSONParseErrorMessage(response)) {
+            this.outstandingRequests[response.id].reject(new ServerParserError(response.message))
+          } else {
+            this.outstandingRequests[response.id].resolve(response)
+          }
+        } catch (e) {
+          // We failed to parse the message skip this line and try the next
+          for (const errorListener of this.errorListener) {
+            errorListener(new ClientParserError(e.message))
+          }
         }
       }
     })
@@ -76,5 +88,17 @@ export class JSONClient {
     this.reconnect = false
     this.socket.end()
     return this.onClosePromise
+  }
+
+  public on(eventType: 'error', callback: (error: Error) => void): void {
+    switch (eventType) {
+      case 'error': {
+        this.errorListener.push(callback)
+        break
+      }
+      default: {
+        throw new Error(`Unknown event type: ${eventType}`)
+      }
+    }
   }
 }
