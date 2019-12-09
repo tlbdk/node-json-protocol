@@ -8,7 +8,7 @@ export interface Position extends JSONMessage {
 }
 
 export class GpsClient extends JSONClient {
-  async GetLatestPosition(): Promise<Position> {
+  async getLatestPosition(): Promise<Position> {
     const response = await this.request({ type: 'GetLatestPosition' })
     // TODO: Validate this is a position
     return response as Position
