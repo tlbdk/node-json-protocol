@@ -27,6 +27,7 @@
   },
   "scripts": {
     "test": "TZ=UTC jest --detectOpenHandles",
+    "cov": "TZ=UTC jest --coverage=true",
     "build": "npm run build:types && npm run build:js:src",
     "build:js": "npm run build:js:src",
     "build:js:src": "babel src --out-dir ./build/dist/src --extensions '.ts' --source-maps --ignore '**/*.d.ts','src/**/*.test.ts'",

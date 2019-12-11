@@ -1,10 +1,8 @@
 import crypto from 'crypto'
 import os from 'os'
 import { JSONClient } from './json-client'
-import { testJSONServer, testJSONServerTimeout } from './testutils'
-import { TimeoutError } from './errors'
+import { TimeoutError, ConnectionClosedError, ConnectionError } from './errors'
 import { JSONServer } from './json-server'
-import net from 'net'
 
 describe('JSONClient', () => {
   let jsonServer: JSONServer
@@ -18,7 +16,15 @@ describe('JSONClient', () => {
           socket.write(JSON.stringify({ id: request.id, type: 'TestRequest', value: 'test' }) + '\n')
           break
         }
+        case 'TestBadRequestId': {
+          socket.write(JSON.stringify({ id: 'not-valid', type: 'TestRequest', value: 'test' }) + '\n')
+          break
+        }
         case 'TestTimeout': {
+          break
+        }
+        case 'TestCloseConnection': {
+          socket.destroy()
           break
         }
         default: {
@@ -31,6 +37,7 @@ describe('JSONClient', () => {
 
   afterAll(async () => {
     await jsonServer.close(true)
+    console.log('Hello')
   })
 
   test('Simple request', async () => {
@@ -39,7 +46,17 @@ describe('JSONClient', () => {
       jsonClient = new JSONClient(socketPath)
       const response = await jsonClient.request({ type: 'TestRequest' })
       expect(response).toEqual({ id: expect.stringMatching('.+'), type: 'TestRequest', value: 'test' })
-      await jsonClient.close()
+    } finally {
+      await jsonClient?.close()
+    }
+  })
+
+  test('Bad request id', async () => {
+    let jsonClient: JSONClient | null = null
+    try {
+      jsonClient = new JSONClient(socketPath)
+      const response = jsonClient.request({ type: 'TestBadRequestId' }, 100)
+      await expect(response).rejects.toThrow(TimeoutError)
     } finally {
       await jsonClient?.close()
     }
@@ -49,8 +66,31 @@ describe('JSONClient', () => {
     let jsonClient: JSONClient | null = null
     try {
       jsonClient = new JSONClient(socketPath)
-      const response = jsonClient.request({ type: 'TestTimeout' }, 1)
-      await expect(response).rejects.toEqual(new TimeoutError())
+      const response = jsonClient.request({ type: 'TestTimeout' }, 100)
+      await expect(response).rejects.toThrow(TimeoutError)
+    } finally {
+      await jsonClient?.close()
+    }
+  })
+
+  test('Connection closed', async () => {
+    let jsonClient: JSONClient | null = null
+    try {
+      jsonClient = new JSONClient(socketPath, { reconnectDelay: 0 })
+      await expect(jsonClient.request({ type: 'TestCloseConnection' }, 1000000)).rejects.toThrow(ConnectionClosedError)
+      const response = jsonClient.request({ type: 'TestRequest' }, 1000000)
+      await expect(response).resolves.toEqual({ id: expect.stringMatching('.+'), type: 'TestRequest', value: 'test' })
+    } finally {
+      await jsonClient?.close()
+    }
+  })
+
+  test('Request error', async () => {
+    let jsonClient: JSONClient | null = null
+    try {
+      jsonClient = new JSONClient(socketPath, { reconnectDelay: 2000, writeDelayOnReconnect: false })
+      await expect(jsonClient.request({ type: 'TestCloseConnection' }, 1000000)).rejects.toThrow(ConnectionClosedError)
+      await expect(jsonClient.request({ type: 'TestRequest' }, 1000000)).rejects.toThrow(ConnectionError)
     } finally {
       await jsonClient?.close()
     }

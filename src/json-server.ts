@@ -42,6 +42,10 @@ export class JSONServer {
       })
     })
 
+    this.server.on('error', err => {
+      console.log(err)
+    })
+
     this.onClosePromise = new Promise(resolve => {
       this.server.on('close', () => {
         // Seems the close event is fired before Jest things the handle is closed
