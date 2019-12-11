@@ -41,7 +41,6 @@ describe('JSONClient', () => {
       expect(response).toEqual({ id: expect.stringMatching('.+'), type: 'TestRequest', value: 'test' })
       await jsonClient.close()
     } finally {
-      // TODO: Also wait on server
       await jsonClient?.close()
     }
   })
