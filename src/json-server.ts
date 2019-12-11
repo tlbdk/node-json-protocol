@@ -5,6 +5,9 @@ import { decode, JSONMessage } from './protocol'
 export class JSONServer {
   private server: net.Server
   private onClosePromise: Promise<void>
+  private onListeningPromise: Promise<void>
+  private lastConnectionId = 0
+  private connections: { [id: number]: net.Socket } = {}
 
   constructor(socketPath: string, callback: (sock: net.Socket, request: JSONMessage) => void) {
     try {
@@ -25,18 +28,47 @@ export class JSONServer {
         }
       })
     })
+
+    // Maintain a map of connections
+    this.server.on('connection', socket => {
+      const connectionId = this.lastConnectionId++
+      this.connections[connectionId] = socket
+      socket.on('close', () => {
+        /* remove socket when it is closed */
+        delete this.connections[connectionId]
+      })
+    })
+
     this.onClosePromise = new Promise(resolve => {
       this.server.on('close', () => {
+        setImmediate(resolve)
+      })
+    })
+
+    this.onListeningPromise = new Promise(resolve => {
+      this.server.on('listening', () => {
         resolve()
       })
     })
 
     this.server.listen(socketPath)
   }
-  close(): Promise<void> {
+
+  close(force = false): Promise<void> {
     this.server.close()
+    if (force) {
+      // Force close all connection
+      for (const connection of Object.values(this.connections)) {
+        connection.destroy()
+      }
+    }
     return this.onClosePromise
   }
+
+  onListening(): Promise<void> {
+    return this.onListeningPromise
+  }
+
   onClose(): Promise<void> {
     return this.onClosePromise
   }

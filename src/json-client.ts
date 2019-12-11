@@ -51,14 +51,16 @@ export class JSONClient {
         buffer = buffer.slice(offset + 1)
         try {
           const response = decode(message.toString()) as JSONMessage
+          const request = this.outstandingRequests[response.id]
+
           // TODO: Validate this is a JSONMessage
-          if (!this.outstandingRequests[response.id]) {
+          if (!request) {
             throw new Error(`Unknown response id ${response.id}`)
             // Skip if we did not ask for this message
           } else if (isJSONParseErrorMessage(response)) {
-            this.outstandingRequests[response.id].reject(new ServerParserError(response.message))
+            request.reject(new ServerParserError(response.message))
           } else {
-            this.outstandingRequests[response.id].resolve(response)
+            request.resolve(response)
           }
         } catch (e) {
           // We failed to parse the message skip this line and try the next
@@ -76,11 +78,16 @@ export class JSONClient {
     const message = encode(request)
     this.socket.write(message + '\n')
 
-    return new Promise<JSONMessage>((resolve, reject) => {
-      this.outstandingRequests[request.id] = { resolve, reject }
-      setTimeout(() => {
+    let timeoutRef: NodeJS.Timeout
+    const requestPromise = new Promise<JSONMessage>((resolve, reject) => {
+      timeoutRef = setTimeout(() => {
         reject(new TimeoutError())
       }, timeout)
+      this.outstandingRequests[request.id] = { resolve, reject }
+    })
+    return requestPromise.finally(() => {
+      delete this.outstandingRequests[request.id]
+      clearTimeout(timeoutRef)
     })
   }
 
