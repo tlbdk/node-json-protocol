@@ -1,7 +1,6 @@
 import net from 'net'
 import { decode, encode, JSONMessage, isJSONParseErrorMessage, JSONMessageRequest } from './protocol'
 import { TimeoutError, ServerParserError, ConnectionClosedError, ConnectionError, ClientParserError } from './errors'
-import { Socket } from 'dgram'
 
 interface JSONClientOptions {
   reconnectDelay: number
