@@ -1,6 +1,7 @@
 import net from 'net'
 import fs from 'fs'
 import { decode, JSONMessage } from './protocol'
+import { isFileNotFoundError } from './errors'
 
 export class JSONServer {
   private server: net.Server
@@ -13,7 +14,9 @@ export class JSONServer {
     try {
       fs.unlinkSync(socketPath)
     } catch (e) {
-      // TODO: Test the error type and rethrow if it's not "Not found"
+      if (!isFileNotFoundError) {
+        throw e
+      }
     }
     this.server = net.createServer(client => {
       let buffer = Buffer.alloc(0)
