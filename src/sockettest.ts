@@ -25,9 +25,9 @@ function createConnection(socketPath: string): void {
     console.log('client close')
     setTimeout(() => {
       //console.log(new Date().toISOString())
-      //client.connect({ path: socketPath })
+      client.connect({ path: socketPath })
       //createConnection(socketPath)
-      reconnectSocket(client, socketPath)
+      //reconnectSocket(client, socketPath)
     }, 1)
   })
 }

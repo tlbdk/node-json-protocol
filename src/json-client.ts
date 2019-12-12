@@ -116,6 +116,7 @@ export class JSONClient {
         // TODO: Validate this is a JSONMessage
         const response = decode(message.toString()) as JSONMessage
         const request = this.outstandingRequests[response.id]
+        // TODO: Validate that request is not undefined
         delete this.outstandingRequests[response.id]
         clearTimeout(request.timeoutRef)
         if (!request) {
@@ -137,7 +138,7 @@ export class JSONClient {
 
   async request(obj: JSONMessageRequest, timeout = 1000): Promise<JSONMessage> {
     // TODO: Validate that it's a JSONMessageRequest
-    const request = { id: this.id++ + '', ...obj } as JSONMessage
+    const request = { id: `${this.id++}`, ...obj } as JSONMessage
     const message = encode(request)
 
     // Done to handle clearing timeout and remove request when it's done
@@ -168,7 +169,7 @@ export class JSONClient {
     if (this.reconnecting) {
       this.onCloseResolve()
     }
-    this.socket.destroy()
+    this.socket.end()
     return this.onClosePromise
   }
 

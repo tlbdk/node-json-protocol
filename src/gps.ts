@@ -7,10 +7,18 @@ export interface Position extends JSONMessage {
   speed: number
 }
 
+function isPosition(obj: JSONMessage): obj is Position {
+  // TODO: Validate this is a position
+  return true
+}
+
 export class GpsClient extends JSONClient {
   async getLatestPosition(): Promise<Position> {
     const response = await this.request({ type: 'GetLatestPosition' })
-    // TODO: Validate this is a position
-    return response as Position
+    if (isPosition(response)) {
+      return response
+    } else {
+      throw new Error(`Failed validation of position`)
+    }
   }
 }

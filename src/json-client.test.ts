@@ -55,7 +55,7 @@ describe('JSONClient', () => {
     let jsonClient: JSONClient | null = null
     try {
       jsonClient = new JSONClient(socketPath)
-      const response = jsonClient.request({ type: 'TestBadRequestId' }, 100)
+      const response = jsonClient.request({ type: 'TestBadRequestId' }, 1)
       await expect(response).rejects.toThrow(TimeoutError)
     } finally {
       await jsonClient?.close()
@@ -66,8 +66,10 @@ describe('JSONClient', () => {
     let jsonClient: JSONClient | null = null
     try {
       jsonClient = new JSONClient(socketPath)
-      const response = jsonClient.request({ type: 'TestTimeout' }, 100)
+      const response = jsonClient.request({ type: 'TestTimeout' }, 1)
       await expect(response).rejects.toThrow(TimeoutError)
+    } catch (e) {
+      console.log(e)
     } finally {
       await jsonClient?.close()
     }
